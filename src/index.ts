@@ -78,8 +78,6 @@ export interface ReducerBuilder<InS extends OutS, OutS> {
     (state: InS | undefined, action: AnyAction): OutS;
 }
 
-export type DefaultHandler<InS extends OutS, OutS> = (state: InS) => OutS;
-
 export type Handler<InS extends OutS, OutS, P> = (
     state: InS,
     payload: P,
@@ -87,19 +85,19 @@ export type Handler<InS extends OutS, OutS, P> = (
 
 export function reducerWithInitialState<S>(
     initialState: S,
-    defaultHandler?: DefaultHandler<S, S>,
+    defaultHandler?: Handler<S, S, AnyAction>,
 ): ReducerBuilder<S, S> {
     return makeReducer<S, S>(defaultHandler, initialState);
 }
 
 export function reducerWithoutInitialState<S>(
-    defaultHandler?: DefaultHandler<S, S>,
+    defaultHandler?: Handler<S, S, AnyAction>,
 ): ReducerBuilder<S, S> {
     return makeReducer<S, S>(defaultHandler);
 }
 
 export function upcastingReducer<InS extends OutS, OutS>(
-    defaultHandler?: DefaultHandler<InS, OutS>,
+    defaultHandler?: Handler<InS, OutS, AnyAction>,
 ): ReducerBuilder<InS, OutS> {
     return makeReducer<InS, OutS>(defaultHandler);
 }
@@ -112,7 +110,7 @@ interface Case<InS extends OutS, OutS, P> {
 type CaseList<InS extends OutS, OutS> = Array<Case<InS, OutS, any>>;
 
 function makeReducer<InS extends OutS, OutS>(
-    defaultHandler?: DefaultHandler<InS, OutS>,
+    defaultHandler?: Handler<InS, OutS, AnyAction>,
     initialState?: InS,
 ): ReducerBuilder<InS, OutS> {
     const cases: CaseList<InS, OutS> = [];
@@ -165,7 +163,7 @@ function makeReducer<InS extends OutS, OutS>(
 function getReducerFunction<InS extends OutS, OutS>(
     initialState: InS | undefined,
     cases: CaseList<InS, OutS>,
-    defaultHandler?: DefaultHandler<InS, OutS>,
+    defaultHandler?: Handler<InS, OutS, AnyAction>,
 ) {
     return (state = initialState as InS, action: AnyAction) => {
         for (const { actionCreator, handler } of cases) {
@@ -174,6 +172,6 @@ function getReducerFunction<InS extends OutS, OutS>(
             }
         }
 
-        return defaultHandler ? defaultHandler(state) : state;
+        return defaultHandler ? defaultHandler(state, action) : state;
     };
 }
