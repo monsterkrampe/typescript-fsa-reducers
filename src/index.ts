@@ -78,6 +78,8 @@ export interface ReducerBuilder<InS extends OutS, OutS> {
     (state: InS | undefined, action: AnyAction): OutS;
 }
 
+export type DefaultHandler<InS extends OutS, OutS> = (state: InS) => OutS;
+
 export type Handler<InS extends OutS, OutS, P> = (
     state: InS,
     payload: P,
@@ -85,19 +87,21 @@ export type Handler<InS extends OutS, OutS, P> = (
 
 export function reducerWithInitialState<S>(
     initialState: S,
+    defaultHandler?: DefaultHandler<S, S>,
 ): ReducerBuilder<S, S> {
-    return makeReducer<S, S>(initialState);
+    return makeReducer<S, S>(defaultHandler, initialState);
 }
 
-export function reducerWithoutInitialState<S>(): ReducerBuilder<S, S> {
-    return makeReducer<S, S>();
+export function reducerWithoutInitialState<S>(
+    defaultHandler?: DefaultHandler<S, S>,
+): ReducerBuilder<S, S> {
+    return makeReducer<S, S>(defaultHandler);
 }
 
-export function upcastingReducer<InS extends OutS, OutS>(): ReducerBuilder<
-    InS,
-    OutS
-> {
-    return makeReducer<InS, OutS>();
+export function upcastingReducer<InS extends OutS, OutS>(
+    defaultHandler?: DefaultHandler<InS, OutS>,
+): ReducerBuilder<InS, OutS> {
+    return makeReducer<InS, OutS>(defaultHandler);
 }
 
 interface Case<InS extends OutS, OutS, P> {
@@ -108,13 +112,15 @@ interface Case<InS extends OutS, OutS, P> {
 type CaseList<InS extends OutS, OutS> = Array<Case<InS, OutS, any>>;
 
 function makeReducer<InS extends OutS, OutS>(
+    defaultHandler?: DefaultHandler<InS, OutS>,
     initialState?: InS,
 ): ReducerBuilder<InS, OutS> {
     const cases: CaseList<InS, OutS> = [];
-    const reducer = getReducerFunction(initialState, cases) as ReducerBuilder<
-        InS,
-        OutS
-    >;
+    const reducer = getReducerFunction(
+        initialState,
+        cases,
+        defaultHandler,
+    ) as ReducerBuilder<InS, OutS>;
 
     reducer.caseWithAction = <P>(
         actionCreator: ActionCreator<P>,
@@ -149,7 +155,9 @@ function makeReducer<InS extends OutS, OutS>(
         reducer.casesWithAction(actionCreators, (state, action) =>
             handler(state, action.payload),
         );
-    reducer.build = () => getReducerFunction(initialState, cases.slice());
+
+    reducer.build = () =>
+        getReducerFunction(initialState, cases.slice(), defaultHandler);
 
     return reducer;
 }
@@ -157,6 +165,7 @@ function makeReducer<InS extends OutS, OutS>(
 function getReducerFunction<InS extends OutS, OutS>(
     initialState: InS | undefined,
     cases: CaseList<InS, OutS>,
+    defaultHandler?: DefaultHandler<InS, OutS>,
 ) {
     return (state = initialState as InS, action: AnyAction) => {
         for (const { actionCreator, handler } of cases) {
@@ -164,6 +173,7 @@ function getReducerFunction<InS extends OutS, OutS>(
                 return handler(state, action);
             }
         }
-        return state;
+
+        return defaultHandler ? defaultHandler(state) : state;
     };
 }
